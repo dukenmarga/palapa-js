@@ -1,0 +1,17 @@
+{
+  "name": "palapa",
+  "version": "0.0.1",
+  "description": "A lightweight TypeScript library to track web performance metrics using Web Vitals.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "uuidv7": "^1.0.2",
+    "web-vitals": "^5.1.0"
+  }
+}
