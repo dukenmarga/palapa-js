@@ -1,6 +1,6 @@
 import { onTTFB, onCLS, onFCP, onINP, onLCP } from "web-vitals";
 import { uuidv7 } from "uuidv7";
-import { Configuration, Tracker, Metric, NavigatorData } from "./type";
+import { Configuration, Tracker, Metric, NavigatorTracker } from "./type";
 
 // Convert version string to number before saving it to database.
 // The aim is to make it easier to sort and filter versions.
@@ -21,6 +21,7 @@ interface ExtendedNavigator extends globalThis.Navigator {
 }
 let tracker: Tracker;
 let config: Configuration;
+let navigatordata: NavigatorTracker;
 
 export function init(cfg: Configuration) {
     let id = uuidv7();
@@ -28,10 +29,7 @@ export function init(cfg: Configuration) {
 
     // Initiate the tracker and collect navigator data
     InitiateTracker(id);
-    let navigatordata = CollectNavigatorData(id);
-
-    // Send the navigator data
-    sendNavigatorData(navigatordata);
+    navigatordata = CollectNavigatorData(id);
 
     // Measure and log TTFB as soon as it's available.
     onTTFB(sendAnalyticsData);
@@ -52,7 +50,10 @@ export function init(cfg: Configuration) {
 function InitiateTracker(id: string) {
     tracker = {
         id: id,
-        analytics: {
+        project_id: config.projectID,
+        version: VERSION_NUMBER,
+        created_at: Date.now(),
+        core: {
             TTFB: 0,
             TTFB_ID: "",
             LCP: 0,
@@ -64,23 +65,40 @@ function InitiateTracker(id: string) {
             INP: 0,
             INP_ID: "",
         },
+        browser: {
+            app_code_name: "",
+            oscpu: "",
+            platform: "",
+            user_agent: "",
+        },
+        connection: {
+            downlink: 0,
+            downlink_max: 0,
+            effective_type: "",
+            rtt: 0,
+            save_data: false,
+            type: "",
+        },
     };
 }
 
-function CollectNavigatorData(id: string): NavigatorData {
+function CollectNavigatorData(id: string): NavigatorTracker {
     let navigator: ExtendedNavigator = window.navigator as ExtendedNavigator;
-    let navigatordata: NavigatorData = {
-        id: id,
-        appCodeName: navigator.appCodeName,
-        oscpu: navigator.oscpu,
-        platform: navigator.platform,
-        userAgent: navigator.userAgent, // browser's UA string
-        connDownlink: navigator.connection?.downlink || 0, // megabits per second
-        connDownlinkMax: navigator.connection?.downlinkMax || 0, // megabits per second
-        connEffectiveType: navigator.connection?.effectiveType || "", // 'slow-2g', '2g', '3g', or '4g'
-        connRtt: navigator.connection?.rtt || 0, // milliseconds, estimated effective round-trip time of the current connection (rounded to multiple of 25ms)
-        connSaveData: navigator.connection?.saveData || false, // if user set a reduced data usage option on the user agent
-        connType: navigator.connection?.type || "", // bluetooth, cellular, ethernet, none, wifi, wimax, other, unknown
+    let navigatordata: NavigatorTracker = {
+        browser: {
+            app_code_name: navigator.appCodeName,
+            oscpu: navigator.oscpu,
+            platform: navigator.platform,
+            user_agent: navigator.userAgent,
+        },
+        connection: {
+            downlink: navigator.connection?.downlink || 0,
+            downlink_max: navigator.connection?.downlinkMax || 0,
+            effective_type: navigator.connection?.effectiveType || "",
+            rtt: navigator.connection?.rtt || 0,
+            save_data: navigator.connection?.saveData || false,
+            type: navigator.connection?.type || "",
+        },
     };
     return navigatordata;
 }
@@ -88,36 +106,33 @@ function CollectNavigatorData(id: string): NavigatorData {
 function sendAnalyticsData(metric: Metric) {
     switch (metric.name) {
         case "TTFB":
-            tracker.analytics.TTFB = metric.value;
-            tracker.analytics.TTFB_ID = metric.id;
+            tracker.core.TTFB = metric.value;
+            tracker.core.TTFB_ID = metric.id;
+            return;
         case "LCP":
-            tracker.analytics.LCP = metric.value;
-            tracker.analytics.LCP_ID = metric.id;
+            tracker.core.LCP = metric.value;
+            tracker.core.LCP_ID = metric.id;
+            break;
         case "FCP":
-            tracker.analytics.FCP = metric.value;
-            tracker.analytics.FCP_ID = metric.id;
+            tracker.core.FCP = metric.value;
+            tracker.core.FCP_ID = metric.id;
+            break;
         case "CLS":
-            tracker.analytics.CLS = metric.value;
-            tracker.analytics.CLS_ID = metric.id;
+            tracker.core.CLS = metric.value;
+            tracker.core.CLS_ID = metric.id;
+            break;
         case "INP":
-            tracker.analytics.INP = metric.value;
-            tracker.analytics.INP_ID = metric.id;
+            tracker.core.INP = metric.value;
+            tracker.core.INP_ID = metric.id;
+            break;
     }
-    console.log(tracker);
-    const body = JSON.stringify({
-        name: metric.name,
-        value: metric.value,
-        id: metric.id,
-    });
+    let payload: Tracker = {
+        ...tracker,
+        version: VERSION_NUMBER,
+        browser: navigatordata.browser,
+        connection: navigatordata.connection,
+    };
+    const body = JSON.stringify(payload);
 
     navigator.sendBeacon(`${config.trackerURL}/analytics`, body);
-}
-
-function sendNavigatorData(navigatordata: NavigatorData) {
-    const body = JSON.stringify({
-        ...navigatordata,
-        version: VERSION_NUMBER,
-    });
-
-    navigator.sendBeacon(`${config.trackerURL}/navigators`, body);
 }
