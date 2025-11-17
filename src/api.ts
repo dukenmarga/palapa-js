@@ -1,12 +1,12 @@
 import { onTTFB, onCLS, onFCP, onINP, onLCP } from "web-vitals";
 import { uuidv7 } from "uuidv7";
-import { Configuration, Tracker, Metric, NavigatorTracker } from "./type";
+import { Configuration, Tracker, Metric, NavigatorTracker } from "./type.js";
 
 // Convert version string to number before saving it to database.
 // The aim is to make it easier to sort and filter versions.
 // 1.8.17 will be converted to 1008017, 1_000_000 x major + 1_000 x minor + 1 x patch
-const VERSION = "0.0.1";
-const VERSION_NUMBER = 1;
+const VERSION = "0.1.1";
+const VERSION_NUMBER = 1_001;
 
 interface ExtendedNavigator extends globalThis.Navigator {
     oscpu: string;

@@ -1,1 +1,1 @@
-export { init } from "./api";
+export { init } from "./api.js";
